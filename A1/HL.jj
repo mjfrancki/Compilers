@@ -1,0 +1,116 @@
+options {
+  IGNORE_CASE=true;
+}
+
+PARSER_BEGIN(HL)
+
+public class HL {
+}
+
+PARSER_END(HL)
+
+TOKEN_MGR_DECLS : 
+{
+}
+
+SKIP : {
+  " "     
+  | "\t"    
+  | "\n"    
+  | "\r"    
+  }
+
+TOKEN : 
+{
+	< ADD:	"+">
+|	< ASSIGN:	"=">
+|	< COMMA:	",">
+|	< DIV:	"/">
+|	< EQ:	"==">
+|	< EXP:	"^">
+|	< GE:	">=">
+|	< GT:	">">
+|	< LE:	"<=">
+|	< LT:	"<">
+|	< LSQUARE:	"[">
+|	< LPAREN:	"(">
+|	< NE:	"<>">
+|	< PROD:	"*">
+|	< RSQUARE:	"]">
+|	< RPAREN:	")">
+|	< SEMICOL:	";">
+|	< SUB:	"-">
+}
+TOKEN : 
+{
+	< AND:"AND">
+|	< AS:"AS">
+|	< BOOL:"BOOL">
+|	< BY:"BY">
+|	< DEC:"DEC">
+|	< DO:"DO">
+|	< ELIF:"ELIF">
+|	< ELSE:"ELSE">
+|	< FI:"FI">
+|	< FOR:"FOR">
+|	< FOREACH:"FOREACH">
+|	< FROM:"FROM">
+|	< FUN:"FUN">
+|	< IF:"IF">
+|	< IN:"IN">
+|	< INT:"INT">
+|	< ISA:"ISA">
+|	< NOT:"NOT">
+|	< NUF:"NUF">
+|	< OD:"OD">
+|	< OR:"OR">
+|	< POLYN:"POLYN">
+|	< PRINT:"PRINT">
+|	< RETURN:"RETURN">
+|	< STOP:"STOP">
+|	< THEN:"THEN">
+|	< TO:"TO">
+|	< VAR:"VAR">
+|	< WHILE:"WHILE">
+|	< X:"X">
+}
+
+TOKEN : 
+{
+	< #DIGIT:	["0"-"9"]>
+|	< #LETTER:	["a"-"z","A"-"Z"]>
+|	< BOOLEAN:	("TRUE" |"FALSE") >
+|	< INTEGER:	(<DIGIT>)+ >
+|	< IDENTIFIER:	<LETTER>(<LETTER>|<DIGIT>)* >
+}
+
+// ---------------------- PROCESSING STRING TOKEN ----------------------------
+
+MORE:
+{   <"\"" >    : INSTRING
+}
+<INSTRING> MORE:
+{   < "\\\\" >
+|   < "\\\"" >
+|   < "\\t" >
+|   < "\\n" >
+}
+<INSTRING> TOKEN:
+{   <STRING: "\""> : DEFAULT
+}
+<INSTRING> MORE:
+{
+    < ["0"-"9"] >
+|   < ["a"-"z","A"-"Z"] >
+|   < ["`", "~", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "_", "=", "+"] >
+|   < ["[", "{", "]", "}", "|"] >
+|   < [";", ":", "'"] >
+|   < ["," , "<" , "." , ">" , "/" , "?", " "] >
+}
+
+// ---------------------- PROCESSING COMMENTS     ----------------------------
+
+SPECIAL_TOKEN : {
+        <COMMENT_SINGlE: "//" (~["\n","\r"])* ("\n"|"\r"|"\r\n")>
+    }
+
