@@ -1,0 +1,379 @@
+options {
+  IGNORE_CASE=false;
+  DEBUG_PARSER = false;
+  MULTI=true;	// This will generate one AST class for each non-suppressed non-terminal
+  VISITOR=true;	// This won't be used until the next assignment, but will be needed to make your assignment compile properly
+  JJTREE_OUTPUT_DIRECTORY="AST";  // This will put all your AST classes in the AST directory
+}
+
+PARSER_BEGIN(HL)
+
+public class HL {
+}
+
+PARSER_END(HL)
+
+TOKEN_MGR_DECLS : 
+{
+
+}
+
+SKIP : 
+{
+  " "     
+  | "\t"    
+  | "\n"    
+  | "\r"
+  | < "//" (~["\n","\r"])* ("\n" | "\r" | "\r\n") >
+  | < "/*" (~["\r"])* "*/" >
+}
+
+TOKEN : 
+{
+        < LT : "<">
+|       < LE : "<=">
+|       < GT : ">">
+|       < GE : ">=">
+|       < NE : "<>">
+|       < EQ : "==">
+|       < ADD : "+">
+|       < SUB : "-">
+|       < PROD : "*">
+|       < DIV : "/">
+|       < EXP : "^">
+|       < ASSIGN : "=">
+|       < LPAREN : "(">
+|       < RPAREN : ")">
+|       < LSQUARE : "[">
+|       < RSQUARE : "]">
+|       < COMMA : ",">
+|       < SEMICOL : ";">
+|	< AND: "and">
+|	< AS: "as">
+|	< BOOL: "bool">
+|	< BY: "by">
+|	< DEC: "dec">
+|	< DO: "do">
+|	< ELIF: "elif">
+|	< ELSE: "else">
+|	< FI: "fi">
+|	< FOR: "for">
+|	< FOREACH: "foreach">
+|	< FROM: "from">
+|	< FUN: "fun">
+|	< IF: "if">
+|	< IN: "in">               
+|	< INT: "int">
+|	< ISA: "isa">
+|	< NOT: "not">
+|	< NUF: "nuf">
+|	< OD: "od">
+|	< OR: "or">
+|	< POLYN: "polyn">
+|	< PRINT: "print">
+|	< RETURN: "return">
+|	< STOP: "stop">
+|	< THEN: "then">
+|	< TO: "to">
+|	< VAR: "var">
+|	< WHILE: "while">
+|	< X: "x">
+|       <INTEGER: (["0"-"9"])+ >
+|       <DECIMAL: (["0"-"9"])+ "." (["0"-"9"])+ | (["0"-"9"])+ "." (["0"-"9"])+ "E" ["+","-"] (["0"-"9"])+ >
+|       <BOOLEAN: "true" | "false"  | "FALSE"  | "TRUE"  | "False"  | "True" | "tRUe" | "fALse">
+|       <STRING: "\"" ( ~["\"","\\","\n","\r"] | "\\" ( ["n","t","r","\\","\'","\""] | ( ["\r", "\n"] | "\r\n")))* "\"">
+|       <IDENTIFIER: (["a"-"z","A"-"Z"])((["a"-"z","A"-"Z"])*|["0"-"9"])* >
+}
+
+
+
+SimpleNode start() #void: {}
+{
+    S()
+    {return (SimpleNode) (jjtree.popNode()); }
+|   <EOF> { throw new ParseException("End of File.");}
+}
+
+
+void S()  #void : {}
+{ 
+  LOOKAHEAD(id_statement())
+  id_statement()
+| LOOKAHEAD(expression())  
+  expression() 
+
+}
+
+void id_statement() #void : {}
+{ 
+    LOOKAHEAD(2) fn_call() <SEMICOL>
+|   LOOKAHEAD(2) assignment() <SEMICOL>
+|   statement()
+}
+
+void statement() #void : {}
+{ 
+    var_decl() <SEMICOL>
+|   fn_decl() <SEMICOL>
+|   <IF> if_stat() <FI> <SEMICOL>
+|   for_stat() <SEMICOL>
+|   foreach_stat() <SEMICOL>
+|   while_stat() <SEMICOL>
+|   stop_stat() <SEMICOL>
+|   print_stat() <SEMICOL>
+|   return_stat() <SEMICOL>
+}
+
+void var_decl() : {}
+{ 
+<VAR> indent_list() type_decl()
+
+}
+
+void indent_list() : {}
+{
+(Identifier() (<COMMA> Identifier())*)  #identlist(>1)
+   
+
+}
+
+void type_decl() #void : {}
+{
+<AS> type()
+
+}
+
+void type() #void : {}
+{
+( <INT> #INT | <BOOL> #BOOL | <POLYN> #POL) 
+}
+
+void fn_decl() : {}
+{
+<FUN> Identifier() <LPAREN> param_decls() <RPAREN> (LOOKAHEAD(1) type_decl() body() | LOOKAHEAD(1) body() #NOTHING) <NUF>  
+
+}
+
+void param_decls() : {}
+{
+  param_decl() (LOOKAHEAD(2) <COMMA> param_decl())*
+}
+
+void param_decl() #void : {}
+{
+  (LOOKAHEAD(1) Identifier() type_decl())?
+}
+
+void body() : {}
+{
+  (LOOKAHEAD(1) id_statement())*
+}
+
+void assignment() : {}
+{
+Identifier() <ASSIGN> arithm()
+}
+
+void if_stat() :{}
+{
+(LOOKAHEAD(2) fn_call() | LOOKAHEAD(2) logical_condition()) <THEN> clause() (LOOKAHEAD(1) <ELIF> if_stat())? (LOOKAHEAD(2) <ELSE> clause())?
+}
+
+void elifs() #void : {}
+{
+(LOOKAHEAD(2) <ELIF> logical_condition() <THEN> clause())* 
+}
+
+void clause() :{}
+{
+body()   
+}
+
+void for_stat() : {}
+{     
+<FOR> Identifier() <FROM> arithm() <TO> arithm() (LOOKAHEAD(2) <BY> arithm())* <DO> body() <OD>  
+
+}
+
+void foreach_stat() : {}
+{
+<FOREACH> Identifier() <IN> arithm() <DO> body() <OD>  
+
+}
+
+void while_stat() : {}
+{
+<WHILE> logical_condition() <DO> body() <OD>  
+
+}
+
+void fn_call() : {}
+{
+Identifier() <LPAREN> (parameters())? <RPAREN>
+}
+
+void parameters() : {}
+{
+  arithm() (LOOKAHEAD(2) <COMMA> arithm())* 
+}
+
+void stop_stat() : {}
+{
+<STOP> Identifier()
+
+}
+
+void return_stat() : {}
+{
+<RETURN> (LOOKAHEAD(1) arithm())*
+
+}
+
+void print_stat() : {}
+{
+<PRINT> <LPAREN> print_paren() (LOOKAHEAD(2) <COMMA> print_paren())* <RPAREN>  
+
+}
+
+void print_paren() #void : {} 
+{
+  LOOKAHEAD(1) String() 
+| arithm()
+}
+
+void logical_condition() #void : {}
+{
+   or_condition()
+}
+
+
+void or_condition() #void :{}
+{
+  and_condition() [LOOKAHEAD(2) <OR> or_condition()]
+}
+
+void and_condition() #void :{}
+{
+  not_condition() [LOOKAHEAD(2) <AND> and_condition()]
+}
+
+
+void not_condition() #void : {}
+{
+     <NOT> not_condition() [LOOKAHEAD(2) <NOT> not_condition()]
+|    condition()
+}
+
+
+void condition() #void : {}
+{
+   LOOKAHEAD(comparison()) comparison() 
+|  <LPAREN> logical_condition() <RPAREN> 
+
+
+}
+
+
+void comparison() #void : {}
+{
+ arithm() (LOOKAHEAD(2) isatype() #isa | LOOKAHEAD(2) comparator() arithm())
+
+
+}
+
+void comparator() #void : {}
+{
+((<EQ>) #EQ | (<LT>) #LT | (<GT>) #GT | (<LE>) #LE | (<GE>) #GE | (<NE>) #NE )
+
+}
+
+void isatype() #void : {}
+{
+<ISA> type() 
+
+}
+
+void expression() #void :{}
+{
+arithm() <SEMICOL>
+
+}
+
+void arithm()  #void : {}
+{
+(LOOKAHEAD(1) ((<ADD>) #plus | (<SUB>) #minus))? (op_perform() (LOOKAHEAD(2) ((<ADD>) #plus | (<SUB>) #minus) op_perform())*) #sum(>2)
+
+}
+
+void op_perform() #void : {}
+{
+(exp() (LOOKAHEAD(2) (<PROD> #times | <DIV> #div ) exp())*) #product(>2)
+
+}
+
+void exp() #void: {}
+{
+(term() (LOOKAHEAD(2) <EXP> term())*) #exp(>1) 
+
+}
+
+
+void term() #void : {}
+{
+(LOOKAHEAD(2) 
+    <LPAREN> arithm() <RPAREN>  
+|   LOOKAHEAD(2) fn_call()  
+|   simple_term())
+
+(LOOKAHEAD(2) <LSQUARE> #indexed arithm() <RSQUARE>)?
+
+}
+
+
+void simple_term() #void : {}
+{
+Identifier() | <BOOLEAN> | LOOKAHEAD(2) polyn() | Integer() 
+
+}
+
+void polyn() : {}
+{
+    (<ADD>) #plus polyn_term()
+|   (<SUB>) #minus polyn_term()
+|   polyn_term() 
+
+}
+
+
+void polyn_term() #void : {}
+{
+<X> { ASTinteger j = new ASTinteger(JJTINTEGER); j.jjtSetToken(new IntegerToken(HLConstants.INTEGER, "1")); jjtree.pushNode(j); 
+      ASTinteger j2 = new ASTinteger(JJTINTEGER); j2.jjtSetToken(new IntegerToken(HLConstants.INTEGER, "1")); jjtree.pushNode(j2);  }
+
+| LOOKAHEAD(3) Integer() <X> <EXP> (LOOKAHEAD(1) <LPAREN> arithm() <RPAREN> | LOOKAHEAD(1) simple_term())  
+| Integer() { ASTinteger j3 = new ASTinteger(JJTINTEGER); j3.jjtSetToken(new IntegerToken(HLConstants.INTEGER, "1")); jjtree.pushNode(j3); } <X> 
+
+
+}
+
+void Identifier() : {Token t;}
+{ 
+t=<IDENTIFIER>
+{jjtThis.jjtSetToken(t);}
+
+}
+
+void Integer() : {Token t;}
+{ 
+t=<INTEGER>
+{jjtThis.jjtSetToken(t);}
+
+}
+
+void String() : {Token t;}
+{ 
+t=<STRING>
+{jjtThis.jjtSetToken(t);}
+
+}
+

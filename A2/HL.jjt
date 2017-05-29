@@ -1,0 +1,585 @@
+options {
+  IGNORE_CASE=true;
+  MULTI=true;	// This will generate one AST class for each non-suppressed non-terminal
+
+  VISITOR=true;	// This won't be used until the next assignment, but will be needed to make your assignment compile properly
+  VISITOR_EXCEPTION="Exception";
+
+  JJTREE_OUTPUT_DIRECTORY="AST";  // This will put all your AST classes in the AST directory
+
+}
+
+PARSER_BEGIN(HL)
+
+public class HL {
+}
+
+PARSER_END(HL)
+
+TOKEN_MGR_DECLS :
+{
+}
+
+SKIP : {
+  " "
+  | "\t"
+  | "\n"
+  | "\r"
+  }
+
+TOKEN :
+{
+	< ADD:	"+">
+|	< ASSIGN:	"=">
+|	< COMMA:	",">
+|	< DIV:	"/">
+|	< EQ:	"==">
+|	< EXP:	"^">
+|	< GE:	">=">
+|	< GT:	">">
+|	< LE:	"<=">
+|	< LT:	"<">
+|	< LSQUARE:	"[">
+|	< LPAREN:	"(">
+|	< NE:	"<>">
+|	< PROD:	"*">
+|	< RSQUARE:	"]">
+|	< RPAREN:	")">
+|	< SEMICOL:	";">
+|	< SUB:	"-">
+}
+TOKEN :
+{
+	< AND:"AND">
+|	< AS:"AS">
+|	< BOOL:"BOOL">
+|	< BY:"BY">
+|	< DEC:"DEC">
+|	< DO:"DO">
+|	< ELIF:"ELIF">
+|	< ELSE:"ELSE">
+|	< FI:"FI">
+|	< FOR:"FOR">
+|	< FOREACH:"FOREACH">
+|	< FROM:"FROM">
+|	< FUN:"FUN">
+|	< IF:"IF">
+|	< IN:"IN">
+|	< INT:"INT">
+|	< ISA:"ISA">
+|	< NOT:"NOT">
+|	< NUF:"NUF">
+|	< OD:"OD">
+|	< OR:"OR">
+|	< POLYN:"POLYN">
+|	< PRINT:"PRINT">
+|	< RETURN:"RETURN">
+|	< STOP:"STOP">
+|	< THEN:"THEN">
+|	< TO:"TO">
+|	< VAR:"VAR">
+|	< WHILE:"WHILE">
+|	< X:"X">
+
+| <PRINTLN:"PRINTLN">
+}
+
+TOKEN :
+{
+	< #DIGIT:	["0"-"9"]>
+|	< #LETTER:	["a"-"z","A"-"Z"]>
+|	< BOOLEAN:	("TRUE" |"FALSE") >
+|	< INTEGER:	(<DIGIT>)+ >
+|	< IDENTIFIER:	<LETTER>(<LETTER>|<DIGIT>)* >
+}
+
+// ---------------------- PROCESSING STRING TOKEN ----------------------------
+
+MORE:
+{   <"\"" >    : INSTRING
+}
+<INSTRING> MORE:
+{   < "\\\\" >
+|   < "\\\"" >
+|   < "\\t" >
+|   < "\\n" >
+}
+<INSTRING> TOKEN:
+{   <STRING: "\""> : DEFAULT
+}
+<INSTRING> MORE:
+{
+    < ["0"-"9"] >
+|   < ["a"-"z","A"-"Z"] >
+|   < ["`", "~", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "_", "=", "+"] >
+|   < ["[", "{", "]", "}", "|"] >
+|   < [";", ":", "'"] >
+|   < ["," , "<" , "." , ">" , "/" , "?", " "] >
+}
+
+// ---------------------- PROCESSING COMMENTS     ----------------------------
+
+SPECIAL_TOKEN : {
+        <COMMENT_SINGlE: "//" (~["\n","\r"])* ("\n"|"\r"|"\r\n")>
+    }
+
+
+
+
+//---------------------------- Grammer ----------------------------
+
+SimpleNode start() throws ParseException #void :
+{}
+{
+
+LOOKAHEAD(3) statement()
+    { return (SimpleNode) (jjtree.popNode()); }
+|  expression() <SEMICOL>
+    { return (SimpleNode) (jjtree.popNode()); }
+|   < EOF > {throw new ParseException("End of File.");}
+}
+
+void statement()#void :
+{}
+{
+
+
+(
+if_stat()
+
+| fn_decl()
+| var_decl()
+
+| LOOKAHEAD(2) printfn_call()
+| LOOKAHEAD(2) printlnfn_call()
+| LOOKAHEAD(2) fn_call()
+| LOOKAHEAD(2) assignment()
+
+| for_stat()
+| foreach_stat()
+| while_stat()
+
+| stop_stat()
+| return_stat()
+| print_stat() )
+
+<SEMICOL>
+
+}
+
+
+void var_decl():
+{}
+{
+
+<VAR> ident_list() type_decl()
+
+}
+
+
+void ident_list():
+{}
+{
+
+identifier()  (<COMMA> identifier())*
+
+}
+
+
+
+void type_decl() #void:
+{}
+{
+
+<AS> type()
+
+}
+
+
+
+
+void type() #void :
+{}
+{
+
+  <BOOL> #boolType
+
+| <POLYN> #polType
+
+| <INT> #intType
+
+}
+
+
+
+
+void fn_decl	():
+{}
+{
+
+<FUN> identifier() <LPAREN>  ( param_decls() )?   <RPAREN> ( type_decl() )?  body()  <NUF>
+
+}
+
+
+
+void param_decls():
+{}
+{
+
+param_decl() ( <COMMA> param_decl())*
+
+}
+
+
+
+void param_decl():
+{}
+{
+
+identifier()  type_decl()
+
+}
+
+
+
+
+void body():
+{}
+{
+
+( statement())*
+
+}
+
+
+void assignment():
+{}
+{
+
+identifier() <ASSIGN> expression()
+
+}
+
+
+void if_stat():
+{}
+{
+
+<IF>  condition() <THEN> clause() elifs() (<ELSE> clause())?  <FI>
+
+}
+
+
+
+void elifs() #void:
+{}
+{
+
+( elif() condition() <THEN> clause() )*
+
+}
+
+
+
+void clause():
+{}
+{
+
+(statement())+
+
+}
+
+
+
+void for_stat():
+{}
+{
+
+<FOR>  identifier() <FROM> expression()  <TO> expression()  (<BY> expression())? <DO> body() <OD>
+
+}
+
+void foreach_stat():
+{}
+{
+
+<FOREACH> identifier() <IN> expression() <DO> body() <OD>
+
+}
+
+
+void while_stat():
+{}
+{
+
+<WHILE> condition() <DO> body() <OD>
+
+}
+
+
+
+void printfn_call():
+{}
+{
+
+<PRINT> <LPAREN> (parameters())? <RPAREN>
+
+}
+
+
+void printlnfn_call():
+{}
+{
+
+<PRINTLN> <LPAREN> (parameters())? <RPAREN>
+
+}
+
+void fn_call():
+{}
+{
+
+identifier() <LPAREN> (parameters())? <RPAREN>
+
+}
+
+
+
+void parameters():
+{}
+{
+
+expression() ( <COMMA>  expression() )*
+
+}
+
+
+void stop_stat():
+{}
+{
+
+<STOP> identifier()
+
+}
+
+
+void return_stat():
+{}
+{
+
+ LOOKAHEAD(2) <RETURN> expression()
+| <RETURN>  #NOTHING
+}
+
+
+
+void print_stat():
+{}
+{
+
+<PRINT> <LPAREN>  print_param() ( <COMMA> print_param() )*  <RPAREN>
+
+}
+
+void print_param() #void:
+{}
+{
+
+expression()
+
+| string()
+
+}
+
+
+void condition() #void:
+{}
+{
+
+and_clause() (  LOOKAHEAD(2) <OR> condition() )*
+
+}
+
+void and_clause() #void:
+{}
+{
+
+not_clause() ( LOOKAHEAD(2) <AND> and_clause())*
+
+}
+
+
+void not_clause()#void:
+{}
+{
+
+<NOT> not_clause()
+
+| LOOKAHEAD(3)<LPAREN> condition() <RPAREN>
+
+| LOOKAHEAD(3) printfn_call()
+| LOOKAHEAD(3) printlnfn_call()
+| LOOKAHEAD(3) fn_call()
+
+| LOOKAHEAD(2) isatype()
+
+| LOOKAHEAD(2) comparison()
+
+
+
+}
+
+void comparison():
+{}
+{
+
+expression() comparator() expression()
+
+}
+
+
+void comparator() #void:
+{}
+{
+
+	<EQ> #EQ
+|	<NE> #NE
+|	<GE> #GE
+|	<GT> #GT
+|	<LE> #LE
+|	<LT> #LT
+
+}
+
+
+void isatype():
+{}
+{
+
+term() <ISA> type()
+
+}
+
+
+void expression() #void :
+{}
+{
+
+( LOOKAHEAD(2) ( <ADD>|  <SUB> ) )? product() ( LOOKAHEAD(2)( plus() | <SUB> ) expression() )*
+
+}
+
+
+void product() #void:
+{}
+{
+
+exp() ( LOOKAHEAD(2)(<PROD>|<DIV>) product())*
+
+}
+
+void exp() #void:
+{}
+{
+
+LOOKAHEAD(2) term() <LSQUARE> expression() <RSQUARE>  #indexed
+
+| LOOKAHEAD(2) term() <EXP> term() #exp
+
+| term()
+
+}
+
+
+void term() #void:
+{}
+{
+
+<LPAREN> expression() <RPAREN>
+| LOOKAHEAD(2) printfn_call()
+| LOOKAHEAD(2) printlnfn_call()
+  | LOOKAHEAD(2) fn_call()
+
+  | simple_term()
+
+
+}
+
+
+void simple_term() #void :
+{}
+{
+
+
+identifier()
+
+| bool()
+
+| LOOKAHEAD(2) integer()
+
+| polyn()
+
+}
+
+
+void polyn() :
+{}
+{
+
+<SUB> polyn_term() ( LOOKAHEAD(2) (<ADD> | <SUB>) polyn_term())* #minus
+
+| (<ADD>)? polyn_term() (LOOKAHEAD(2)( <ADD> |<SUB> ) polyn_term()) * #test
+
+}
+
+
+void polyn_term() #void:
+{}
+{
+
+LOOKAHEAD(2)
+ integer() | (integer() )? <X> (  LOOKAHEAD(2) <EXP> term() )?
+
+}
+
+
+void identifier() :
+{Token t;}
+{ t = <IDENTIFIER>
+ {jjtThis.jjtSetToken(t);}
+}
+
+void integer() :
+{Token t;}
+{ t = <INTEGER>
+ {jjtThis.jjtSetToken(t);}
+}
+
+
+void bool() :
+{Token t;}
+{ t = <BOOLEAN>
+ {jjtThis.jjtSetToken(t);}
+}
+
+
+void string() :
+{Token t;}
+{ t = <STRING>
+ {jjtThis.jjtSetToken(t);}
+}
+
+void elif() #void:
+{}
+{
+
+<ELIF> #if_stat
+
+}
+
+void plus() :
+{}
+{
+<ADD>
+}
